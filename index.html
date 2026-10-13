@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reset your PinkLedger password</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0F0617;
+    color: #F8FAFC;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    background: #180F24;
+    border: 1px solid #38254A;
+    border-radius: 20px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+  }
+  .logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: #FF1493;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 900;
+    font-size: 24px;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin-bottom: 8px;
+  }
+  p.sub {
+    font-size: 14px;
+    color: #94A3B8;
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+  .email {
+    color: #F8FAFC;
+    font-weight: 600;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: #94A3B8;
+    margin-bottom: 6px;
+    margin-top: 16px;
+    text-align: left;
+  }
+  input {
+    width: 100%;
+    padding: 14px 16px;
+    background: #0F0617;
+    border: 1px solid #38254A;
+    border-radius: 12px;
+    color: #F8FAFC;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus {
+    border-color: #FF1493;
+  }
+  button {
+    width: 100%;
+    padding: 15px;
+    background: #FF1493;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 24px;
+    transition: opacity 0.15s;
+  }
+  button:hover:not(:disabled) {
+    background: #DB2777;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .message {
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-top: 16px;
+    line-height: 1.5;
+    display: none;
+  }
+  .message.error {
+    background: rgba(225, 29, 72, 0.15);
+    border: 1px solid rgba(225, 29, 72, 0.4);
+    color: #FCA5A5;
+  }
+  .message.success {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #6EE7B7;
+  }
+  .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  .hidden { display: none; }
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">PL</div>
+
+  <div id="loadingState">
+    <h1>Checking your link</h1>
+    <p class="sub">One moment please...</p>
+  </div>
+
+  <div id="formState" class="hidden">
+    <h1>Reset your password</h1>
+    <p class="sub" id="emailLine"></p>
+
+    <label>New password</label>
+    <input type="password" id="newPassword" autocomplete="new-password" placeholder="At least 6 characters" />
+
+    <label>Confirm password</label>
+    <input type="password" id="confirmPassword" autocomplete="new-password" placeholder="Type it again" />
+
+    <button id="resetBtn">Reset password</button>
+    <div class="message" id="formMessage"></div>
+  </div>
+
+  <div id="successState" class="hidden">
+    <div class="icon">✅</div>
+    <h1>Password reset</h1>
+    <p class="sub">Your password has been changed. Open the PinkLedger app and sign in with your new password.</p>
+  </div>
+
+  <div id="errorState" class="hidden">
+    <div class="icon">⚠️</div>
+    <h1>Link expired or invalid</h1>
+    <p class="sub" id="errorText">This reset link has already been used or has expired. Request a new one from the app.</p>
+  </div>
+</div>
+
+<script type="module">
+  const firebaseConfig = {
+    apiKey: "AIzaSyBKFMUlU3lM1lxh4kfiQea1FD_foDuQOus",
+    authDomain: "pink-ledger-f9dad.firebaseapp.com",
+    projectId: "pink-ledger-f9dad",
+    storageBucket: "pink-ledger-f9dad.firebasestorage.app",
+    messagingSenderId: "635499948615",
+    appId: "1:635499948615:web:04571c14d44e5331f29f62"
+  };
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth,
+    verifyPasswordResetCode,
+    confirmPasswordReset
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  const loadingState = document.getElementById("loadingState");
+  const formState = document.getElementById("formState");
+  const successState = document.getElementById("successState");
+  const errorState = document.getElementById("errorState");
+  const emailLine = document.getElementById("emailLine");
+  const errorText = document.getElementById("errorText");
+  const newPassword = document.getElementById("newPassword");
+  const confirmPassword = document.getElementById("confirmPassword");
+  const resetBtn = document.getElementById("resetBtn");
+  const formMessage = document.getElementById("formMessage");
+
+  function show(el) { el.classList.remove("hidden"); }
+  function hide(el) { el.classList.add("hidden"); }
+
+  function showMessage(text, isError) {
+    formMessage.textContent = text;
+    formMessage.className = "message " + (isError ? "error" : "success");
+    formMessage.style.display = "block";
+  }
+
+  function clearMessage() {
+    formMessage.style.display = "none";
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
+  const oobCode = params.get("oobCode") || hashParams.get("oobCode");
+
+  if (!oobCode) {
+    hide(loadingState);
+    show(errorState);
+    errorText.textContent = "This page needs a valid reset link. Open the app, tap Forgot password, and click the link in your email.";
+  } else {
+    verifyPasswordResetCode(auth, oobCode)
+      .then((email) => {
+        hide(loadingState);
+        show(formState);
+        emailLine.innerHTML = "Resetting password for <span class=\"email\">" + email + "</span>";
+      })
+      .catch((err) => {
+        hide(loadingState);
+        show(errorState);
+        const code = err && err.code ? err.code : "";
+        if (code === "auth/expired-action-code") {
+          errorText.textContent = "This reset link has expired. Open the app and request a new one.";
+        } else if (code === "auth/invalid-action-code") {
+          errorText.textContent = "This reset link is not valid. It may have already been used.";
+        } else {
+          errorText.textContent = "Something went wrong. Open the app and request a new reset link.";
+        }
+      });
+  }
+
+  resetBtn.addEventListener("click", async () => {
+    clearMessage();
+    const p1 = newPassword.value;
+    const p2 = confirmPassword.value;
+
+    if (p1.length < 6) {
+      showMessage("Password must be at least 6 characters.", true);
+      return;
+    }
+    if (p1 !== p2) {
+      showMessage("Passwords do not match.", true);
+      return;
+    }
+
+    resetBtn.disabled = true;
+    resetBtn.innerHTML = "<span class=\"spinner\"></span>Resetting...";
+
+    try {
+      await confirmPasswordReset(auth, oobCode, p1);
+      hide(formState);
+      show(successState);
+    } catch (err) {
+      const code = err && err.code ? err.code : "";
+      if (code === "auth/expired-action-code") {
+        showMessage("The reset link expired. Request a new one from the app.", true);
+      } else if (code === "auth/weak-password") {
+        showMessage("Password is too weak. Try a longer one.", true);
+      } else {
+        showMessage("Couldn't reset the password. Try again.", true);
+      }
+      resetBtn.disabled = false;
+      resetBtn.textContent = "Reset password";
+    }
+  });
+</script>
+
+</body>
+  </html>
